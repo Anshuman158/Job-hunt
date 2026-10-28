@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { 
   Building2, MapPin, Calendar, Users, Briefcase, 
-  DollarSign, Award, ArrowLeft, CheckCircle2 
+  DollarSign, Award, ArrowLeft, CheckCircle2, ExternalLink, Globe, Sparkles 
 } from 'lucide-react';
 
 const JobDescription = () => {
@@ -33,7 +33,7 @@ const JobDescription = () => {
 
   const handleApply = async () => {
     if (!user) {
-      toast.info("Please login to apply for this job.");
+      toast.info("Please login to track or apply for this job.");
       navigate("/login");
       return;
     }
@@ -48,13 +48,15 @@ const JobDescription = () => {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
+    if (!dateString) return "Recently";
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
     });
   };
+
+  const hasExternalApply = Boolean(singleJob?.applyUrl && singleJob.applyUrl.trim().length > 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -97,11 +99,22 @@ const JobDescription = () => {
                     </div>
                   )}
                   <div>
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Live Hiring
+                      </span>
+                      {singleJob?.source && (
+                        <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                          Source: {singleJob.source}
+                        </span>
+                      )}
+                    </div>
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-outfit">
                       {singleJob?.title}
                     </h1>
                     <p className="text-sm font-semibold text-slate-600 flex items-center gap-2 mt-0.5">
-                      <span>{singleJob?.company?.name || "Company"}</span>
+                      <span>{singleJob?.company?.name || singleJob?.companyName || "Company"}</span>
                       <span className="text-slate-300">•</span>
                       <span className="flex items-center gap-1 text-slate-500 font-normal">
                         <MapPin className="w-3.5 h-3.5" />
@@ -125,28 +138,68 @@ const JobDescription = () => {
                 </div>
               </div>
 
-              {/* Apply Button */}
-              <div>
-                <button
-                  disabled={isApplied || isApplying}
-                  onClick={handleApply}
-                  className={`px-8 py-3.5 rounded-2xl font-bold text-sm tracking-wide shadow-md transition-all flex items-center gap-2 ${
-                    isApplied
-                      ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none'
-                      : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-purple-500/25 hover:shadow-purple-500/35 hover:scale-[1.02]'
-                  }`}
-                >
-                  {isApplied ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Already Applied</span>
-                    </>
-                  ) : isApplying ? (
-                    <span>Submitting...</span>
-                  ) : (
-                    <span>Apply Now</span>
-                  )}
-                </button>
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                {hasExternalApply ? (
+                  <>
+                    <a
+                      href={singleJob.applyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        // Automatically record in applied jobs if logged in as student
+                        if (user && user.role === 'student' && !isApplied) {
+                          handleApply();
+                        }
+                      }}
+                      className="px-6 py-3.5 rounded-2xl font-bold text-sm tracking-wide bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-500 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 hover:shadow-purple-500/35 transition-all flex items-center justify-center gap-2 group hover:scale-[1.02]"
+                    >
+                      <span>Apply on Official Website</span>
+                      <ExternalLink className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                    </a>
+
+                    <button
+                      disabled={isApplied || isApplying}
+                      onClick={handleApply}
+                      className={`px-4 py-3 rounded-2xl font-bold text-xs border transition-colors flex items-center justify-center gap-1.5 ${
+                        isApplied
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default'
+                          : 'border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-700 hover:text-purple-700'
+                      }`}
+                      title="Keep track of this application in your Job Hunt profile"
+                    >
+                      {isApplied ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>Tracked in Profile</span>
+                        </>
+                      ) : (
+                        <span>Mark as Applied</span>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    disabled={isApplied || isApplying}
+                    onClick={handleApply}
+                    className={`px-8 py-3.5 rounded-2xl font-bold text-sm tracking-wide shadow-md transition-all flex items-center justify-center gap-2 ${
+                      isApplied
+                        ? 'bg-slate-200 text-slate-500 cursor-not-allowed shadow-none'
+                        : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-purple-500/25 hover:shadow-purple-500/35 hover:scale-[1.02]'
+                    }`}
+                  >
+                    {isApplied ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>Already Applied</span>
+                      </>
+                    ) : isApplying ? (
+                      <span>Submitting...</span>
+                    ) : (
+                      <span>Apply with Profile</span>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -154,7 +207,7 @@ const JobDescription = () => {
             <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-8">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3 font-outfit">
-                  Job Description
+                  Role Overview & Responsibilities
                 </h2>
                 <p className="text-slate-600 text-sm leading-relaxed mt-4 whitespace-pre-line">
                   {singleJob?.description}
@@ -171,7 +224,7 @@ const JobDescription = () => {
                     {singleJob.requirements.map((req, index) => (
                       <span
                         key={index}
-                        className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold"
+                        className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 border border-purple-100 text-xs font-semibold"
                       >
                         {req}
                       </span>
@@ -183,7 +236,7 @@ const JobDescription = () => {
               {/* Quick Info Grid */}
               <div>
                 <h3 className="text-base font-bold text-slate-900 mb-4 font-outfit">
-                  Overview & Compensation
+                  Compensation & Details
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-start gap-3">
@@ -221,7 +274,7 @@ const JobDescription = () => {
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-start gap-3">
                     <Users className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-xs text-slate-400 font-medium">Total Applicants</p>
+                      <p className="text-xs text-slate-400 font-medium">Applicants Tracked</p>
                       <p className="text-sm font-bold text-slate-800">{singleJob?.applications?.length || 0}</p>
                     </div>
                   </div>

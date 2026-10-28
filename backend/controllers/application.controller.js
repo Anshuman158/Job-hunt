@@ -100,10 +100,12 @@ export const getAppliedJobs = async (req, res) => {
             const userApps = mockStore.applications.filter(a => a.applicant.toString() === userId.toString());
             const populated = userApps.map(a => {
                 const jobObj = mockStore.jobs.find(j => j._id.toString() === a.job.toString());
-                const companyObj = jobObj ? mockStore.companies.find(c => c._id.toString() === (jobObj.company?._id || jobObj.company).toString()) : null;
+                const companyObj = jobObj 
+                    ? (jobObj.isExternal ? { name: jobObj.companyName, logo: jobObj.companyLogo } : mockStore.companies.find(c => c._id.toString() === (jobObj.company?._id || jobObj.company).toString()))
+                    : null;
                 return {
                     ...a,
-                    job: jobObj ? { ...jobObj, company: companyObj || { name: "Tech Corp" } } : { title: "Developer Role" }
+                    job: jobObj ? { ...jobObj, company: companyObj || { name: jobObj.companyName || "Tech Corp" } } : { title: "Developer Role" }
                 };
             }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 

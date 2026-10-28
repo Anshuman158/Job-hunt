@@ -30,17 +30,37 @@ const jobSchema = new mongoose.Schema({
     },
     position: {
         type: Number,
-        required: true
+        default: 1
     },
     company: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Company',
-        required: true
+        required: false
+    },
+    companyName: {
+        type: String,
+        default: ""
+    },
+    companyLogo: {
+        type: String,
+        default: ""
+    },
+    applyUrl: {
+        type: String,
+        default: ""
+    },
+    isExternal: {
+        type: Boolean,
+        default: false
+    },
+    source: {
+        type: String,
+        default: "Job Hunt Direct"
     },
     created_by: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        required: false
     },
     applications: [
         {

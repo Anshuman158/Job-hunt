@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { REAL_TECH_JOBS, fetchLiveRemoteJobs } from "./jobFetcher.js";
 
 // In-memory persistent store fallback when MongoDB daemon is not running locally
 class MemoryStore {
@@ -53,13 +54,13 @@ class MemoryStore {
 
         this.users.push(recruiter, student);
 
-        // Companies
+        // Core Verified Companies
         const msft = {
             _id: "666c11111111111111111111",
             name: "Microsoft",
             description: "Empowering every person and organization on the planet to achieve more.",
             website: "https://microsoft.com",
-            location: "Hyderabad",
+            location: "Hyderabad / Bangalore",
             logo: "https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg",
             userId: recruiter._id,
             createdAt: new Date(),
@@ -68,7 +69,7 @@ class MemoryStore {
 
         const jobHunt = {
             _id: "666c22222222222222222222",
-            name: "Job Hunt",
+            name: "Job Hunt Tech",
             description: "Next generation job discovery and recruitment engine.",
             website: "https://jobhunt.io",
             location: "Bangalore",
@@ -83,7 +84,7 @@ class MemoryStore {
             name: "Google",
             description: "Organizing the world's information and making it universally accessible.",
             website: "https://google.com",
-            location: "Pune",
+            location: "Bangalore / Hyderabad / Pune",
             logo: "https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg",
             userId: recruiter._id,
             createdAt: new Date(),
@@ -92,119 +93,32 @@ class MemoryStore {
 
         this.companies.push(msft, jobHunt, google);
 
-        // Jobs
-        const sampleJobs = [
-            {
-                _id: "666j11111111111111111111",
-                title: "Frontend Developer",
-                description: "I need a Frontend Developer who can make professional UI web pages using modern React, Redux, and Tailwind CSS with clean animations.",
-                requirements: ["React", "JavaScript", "Tailwind CSS", "Redux Toolkit", "HTML/CSS"],
-                salary: 14,
-                experienceLevel: 2,
-                location: "Hyderabad",
-                jobType: "Full Time",
-                position: 4,
-                company: jobHunt._id,
-                created_by: recruiter._id,
-                applications: [],
-                createdAt: new Date(Date.now() - 86400000), // 1 day ago
-                updatedAt: new Date()
-            },
-            {
-                _id: "666j22222222222222222222",
-                title: "Full Stack Developer",
-                description: "Looking for a seasoned Full Stack Developer with expertise in Node.js, Express, React, and database design to architect scalable web solutions.",
-                requirements: ["React", "Node.js", "Express", "MongoDB", "REST APIs"],
-                salary: 45,
-                experienceLevel: 3,
-                location: "Hyderabad",
-                jobType: "Full Time",
-                position: 2,
-                company: msft._id,
-                created_by: recruiter._id,
-                applications: [],
-                createdAt: new Date(Date.now() - 172800000), // 2 days ago
-                updatedAt: new Date()
-            },
-            {
-                _id: "666j33333333333333333333",
-                title: "Backend Developer",
-                description: "Backend Developer who can write efficient code in backend with Node.js and MongoDB. Experience with JWT auth and microservices is a plus.",
-                requirements: ["Node.js", "Express", "MongoDB", "Redis", "JWT"],
-                salary: 21,
-                experienceLevel: 2,
-                location: "Pune",
-                jobType: "Part Time",
-                position: 3,
-                company: msft._id,
-                created_by: recruiter._id,
-                applications: [],
-                createdAt: new Date(Date.now() - 259200000),
-                updatedAt: new Date()
-            },
-            {
-                _id: "666j44444444444444444444",
-                title: "Data Science Engineer",
-                description: "Join our data intelligence team to build ML predictive models and real-time recommendation engines.",
-                requirements: ["Python", "Pandas", "Scikit-Learn", "Machine Learning"],
-                salary: 28,
-                experienceLevel: 2,
-                location: "Bangalore",
-                jobType: "Full Time",
-                position: 2,
-                company: google._id,
-                created_by: recruiter._id,
-                applications: [],
-                createdAt: new Date(Date.now() - 345600000),
-                updatedAt: new Date()
-            },
-            {
-                _id: "666j55555555555555555555",
-                title: "DevOps Engineer",
-                description: "Automate cloud infrastructure, manage Kubernetes clusters, and build bullet-proof CI/CD deployment pipelines.",
-                requirements: ["Docker", "Kubernetes", "AWS", "CI/CD", "Linux"],
-                salary: 30,
-                experienceLevel: 3,
-                location: "Delhi NCR",
-                jobType: "Full Time",
-                position: 2,
-                company: jobHunt._id,
-                created_by: recruiter._id,
-                applications: [],
-                createdAt: new Date(Date.now() - 432000000),
-                updatedAt: new Date()
-            },
-            {
-                _id: "666j66666666666666666666",
-                title: "Mobile App Developer",
-                description: "Build fluid cross-platform mobile apps using React Native with native feel, push notifications, and offline caching.",
-                requirements: ["React Native", "TypeScript", "Mobile UI", "REST APIs"],
-                salary: 18,
-                experienceLevel: 2,
-                location: "Mumbai",
-                jobType: "Part Time",
-                position: 3,
-                company: google._id,
-                created_by: recruiter._id,
-                applications: [],
-                createdAt: new Date(Date.now() - 518400000),
-                updatedAt: new Date()
-            }
-        ];
-
-        this.jobs.push(...sampleJobs);
+        // Prepend Real Live Jobs from Tier-1 Tech Giants & Unicorns
+        this.jobs.push(...REAL_TECH_JOBS);
 
         // Pre-apply student to Microsoft Full Stack job
-        const sampleApp = {
-            _id: "666a11111111111111111111",
-            job: this.jobs[1]._id,
-            applicant: student._id,
-            status: "accepted",
-            createdAt: new Date(Date.now() - 86400000),
-            updatedAt: new Date()
-        };
-        this.applications.push(sampleApp);
-        this.jobs[1].applications.push(sampleApp._id);
+        const targetJob = this.jobs[1];
+        if (targetJob) {
+            const sampleApp = {
+                _id: "666a11111111111111111111",
+                job: targetJob._id,
+                applicant: student._id,
+                status: "accepted",
+                createdAt: new Date(Date.now() - 86400000),
+                updatedAt: new Date()
+            };
+            this.applications.push(sampleApp);
+            if (!targetJob.applications) targetJob.applications = [];
+            targetJob.applications.push(sampleApp._id);
+        }
+
+        // Fetch additional live remote tech listings asynchronously
+        fetchLiveRemoteJobs().then((liveJobs) => {
+            if (liveJobs && liveJobs.length > 0) {
+                this.jobs.push(...liveJobs);
+                console.log(`-> Loaded ${liveJobs.length} live remote developer jobs from public feed!`);
+            }
+        }).catch(() => {});
     }
 }
 

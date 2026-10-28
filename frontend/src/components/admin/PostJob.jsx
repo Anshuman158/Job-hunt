@@ -23,7 +23,8 @@ const PostJob = () => {
     jobType: "Full Time",
     experienceLevel: "",
     position: 1,
-    companyId: ""
+    companyId: "",
+    applyUrl: ""
   });
 
   useEffect(() => {
@@ -231,6 +232,24 @@ const PostJob = () => {
                     className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-all placeholder:text-slate-400"
                   />
                 </div>
+              </div>
+
+              {/* External Application URL */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  External Application Link / Career Page (Optional)
+                </label>
+                <input
+                  type="url"
+                  name="applyUrl"
+                  value={input.applyUrl}
+                  onChange={changeEventHandler}
+                  placeholder="https://company.com/careers/job-123 or https://jobs.lever.co/..."
+                  className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-all placeholder:text-slate-400"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Leave empty to collect resumes directly inside Job Hunt. Add a URL to redirect applicants to your official career portal.
+                </p>
               </div>
 
               {/* Description */}
