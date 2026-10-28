@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../shared/Navbar';
 import Footer from '../shared/Footer';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
+import { GoogleLogin } from '@react-oauth/google';
 import { 
   User, Mail, Phone, Lock, Briefcase, 
   GraduationCap, ArrowRight, Loader2, Upload, ShieldCheck, Image 
@@ -19,7 +21,8 @@ const Signup = () => {
   });
 
   const [preview, setPreview] = useState(null);
-  const { signup, loading, user } = useAuth();
+  const { signup, googleLogin, loading, user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -60,6 +63,23 @@ const Signup = () => {
     if (res.success) {
       navigate("/login");
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (credentialResponse?.credential) {
+      const res = await googleLogin(credentialResponse.credential, input.role);
+      if (res.success) {
+        if (input.role === 'recruiter') {
+          navigate("/admin/companies");
+        } else {
+          navigate("/");
+        }
+      }
+    }
+  };
+
+  const handleGoogleError = () => {
+    toast.error("Google Sign-In was cancelled or failed.");
   };
 
   return (
@@ -267,6 +287,29 @@ const Signup = () => {
                     </>
                   )}
                 </button>
+              </div>
+
+              {/* Divider */}
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-3 text-slate-400 font-semibold tracking-wider text-[11px]">Or continue with</span>
+                </div>
+              </div>
+
+              {/* Google Sign In */}
+              <div className="flex justify-center w-full min-h-[44px]">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  theme="outline"
+                  size="large"
+                  shape="pill"
+                  width="100%"
+                  text="signup_with"
+                />
               </div>
             </form>
 

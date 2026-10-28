@@ -135,8 +135,34 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const googleLogin = async (googleToken, role = "student") => {
+    setLoading(true);
+    try {
+      const res = await axios.post(`${USER_API_END_POINT}/google-auth`, { token: googleToken, role }, {
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true
+      });
+
+      if (res.data.success) {
+        setUser(res.data.user);
+        if (res.data.token) {
+          setToken(res.data.token);
+        }
+        toast.success(res.data.message || `Welcome ${res.data.user?.fullname}!`);
+        return { success: true, user: res.data.user };
+      }
+      return { success: false, message: res.data.message };
+    } catch (error) {
+      const message = error.response?.data?.message || "Google Authentication failed.";
+      toast.error(message);
+      return { success: false, message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, signup, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, token, loading, login, signup, logout, updateProfile, googleLogin }}>
       {children}
     </AuthContext.Provider>
   );
