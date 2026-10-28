@@ -15,20 +15,31 @@ const Jobs = () => {
     if (selectedValue) {
       const filtered = allJobs.filter((job) => {
         const val = selectedValue.toLowerCase();
-        const titleMatch = job.title?.toLowerCase().includes(val);
-        const descMatch = job.description?.toLowerCase().includes(val);
-        const locMatch = job.location?.toLowerCase().includes(val);
 
         // Salary range checks
-        if (selectedValue === "0-15 LPA") {
-          return job.salary <= 15;
-        } else if (selectedValue === "15-30 LPA") {
-          return job.salary > 15 && job.salary <= 30;
-        } else if (selectedValue === "30-50 LPA") {
-          return job.salary > 30 && job.salary <= 50;
+        if (selectedValue === "0-20 LPA") {
+          return job.salary <= 20;
+        } else if (selectedValue === "20-35 LPA") {
+          return job.salary > 20 && job.salary <= 35;
+        } else if (selectedValue === "35-50 LPA") {
+          return job.salary > 35 && job.salary <= 50;
+        } else if (selectedValue === "50+ LPA") {
+          return job.salary > 50;
         }
 
-        return titleMatch || descMatch || locMatch;
+        // Company name match
+        const companyName = (job.company?.name || job.companyName || "").toLowerCase();
+        if (companyName.includes(val)) return true;
+
+        // Location match
+        if (job.location?.toLowerCase().includes(val)) return true;
+
+        // Role/title/description keyword match
+        const titleMatch = job.title?.toLowerCase().includes(val);
+        const descMatch = job.description?.toLowerCase().includes(val);
+        const reqMatch = job.requirements?.some(r => r.toLowerCase().includes(val));
+        const sourceMatch = job.source?.toLowerCase().includes(val);
+        return titleMatch || descMatch || reqMatch || sourceMatch;
       });
       setFilterJobs(filtered);
     } else {

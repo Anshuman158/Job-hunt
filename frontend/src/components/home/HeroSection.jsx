@@ -36,7 +36,7 @@ const HeroSection = () => {
 
         {/* Subtitle */}
         <p className="text-slate-600 text-sm sm:text-base max-w-2xl mx-auto mb-10 leading-relaxed">
-          Explore thousands of job opportunities with top companies and startups. Take the next step in your professional career today.
+          Explore <span className="font-bold text-purple-600">100+ live job opportunities</span> at Google, Microsoft, Amazon, Swiggy, Razorpay & more. Direct "Apply on Official Website" links — no paywalls, no middlemen.
         </p>
 
         {/* Search Bar */}

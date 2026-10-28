@@ -4,14 +4,23 @@ import { useJob } from '../../context/JobContext';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const categories = [
+  "Software Engineer",
   "Frontend Developer",
   "Backend Developer",
-  "Data Science",
-  "Graphic Designer",
   "FullStack Developer",
   "DevOps Engineer",
-  "Mobile App Developer",
-  "UI/UX Designer"
+  "Data Science",
+  "AI Engineer",
+  "Cloud Engineer",
+  "React Developer",
+  "Node.js Developer",
+  "Mobile Developer",
+  "Platform Engineer",
+  "Site Reliability",
+  "UI Engineer",
+  "Product Engineer",
+  "SDE",
+  "Remote"
 ];
 
 const CategoryCarousel = () => {

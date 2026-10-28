@@ -4,15 +4,19 @@ import { Filter, RotateCcw } from 'lucide-react';
 const filterData = [
   {
     filterType: "Location",
-    array: ["Delhi NCR", "Bangalore", "Hyderabad", "Pune", "Mumbai"]
+    array: ["Bangalore", "Hyderabad", "Delhi NCR", "Mumbai", "Pune", "Chennai", "Noida", "Remote", "Remote (Global)"]
   },
   {
-    filterType: "Industry",
-    array: ["Frontend Developer", "Backend Developer", "FullStack Developer", "Data Science"]
+    filterType: "Role / Industry",
+    array: ["Frontend Developer", "Backend Developer", "FullStack Developer", "Software Engineer", "DevOps Engineer", "Data Science", "Cloud Engineer", "Mobile Developer", "AI Engineer", "Product Engineer", "UI Engineer", "SDE", "System Engineer"]
+  },
+  {
+    filterType: "Company",
+    array: ["Google", "Microsoft", "Amazon", "Meta", "Apple", "Netflix", "Uber", "Stripe", "Flipkart", "Swiggy", "Zomato", "Razorpay", "CRED", "PhonePe", "Zepto", "Meesho", "GitHub", "GitLab", "Cloudflare", "Vercel"]
   },
   {
     filterType: "Salary Range",
-    array: ["0-15 LPA", "15-30 LPA", "30-50 LPA"]
+    array: ["0-20 LPA", "20-35 LPA", "35-50 LPA", "50+ LPA"]
   }
 ];
 
