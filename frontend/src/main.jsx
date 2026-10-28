@@ -8,7 +8,7 @@ import { CompanyProvider } from './context/CompanyContext.jsx';
 import { JobProvider } from './context/JobContext.jsx';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "jobhunt-google-auth.apps.googleusercontent.com";
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "270309549510-o7dp7q54c60k8qm8tge7sa4dlrrh1c75.apps.googleusercontent.com";
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
