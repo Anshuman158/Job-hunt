@@ -26,10 +26,32 @@ const userSchema = new mongoose.Schema({
         enum: ['student', 'recruiter'],
         required: true
     },
+    isVerified: {
+        type: Boolean,
+        default: false
+    },
+    verificationToken: {
+        type: String,
+        default: ""
+    },
+    verificationTokenExpiry: {
+        type: Date
+    },
+    resetPasswordToken: {
+        type: String,
+        default: ""
+    },
+    resetPasswordExpiry: {
+        type: Date
+    },
+    refreshToken: {
+        type: String,
+        default: ""
+    },
     profile: {
         bio: { type: String, default: "" },
         skills: [{ type: String }],
-        resume: { type: String, default: "" }, // URL to resume file (Cloudinary CDN or DataURI)
+        resume: { type: String, default: "" },
         resumeOriginalName: { type: String, default: "" },
         resumePublicId: { type: String, default: "" },
         company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
@@ -46,5 +68,7 @@ const userSchema = new mongoose.Schema({
 
 // ── Indexes for query performance ───────────────────────────────────────────
 userSchema.index({ role: 1 });
+userSchema.index({ resetPasswordToken: 1 });
+userSchema.index({ verificationToken: 1 });
 
 export const User = mongoose.model('User', userSchema);

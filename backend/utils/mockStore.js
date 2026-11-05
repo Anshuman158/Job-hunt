@@ -22,12 +22,16 @@ class MemoryStore {
             phoneNumber: 9876543210,
             password: hashedPassword,
             role: "recruiter",
+            isVerified: true,
+            refreshToken: "",
             profile: {
                 bio: "Senior Technical Talent Partner @ Microsoft",
                 skills: ["Recruitment", "Talent Acquisition", "Technical Sourcing"],
                 profilePhoto: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
                 resume: "",
-                resumeOriginalName: ""
+                resumeOriginalName: "",
+                resumePublicId: "",
+                profilePhotoPublicId: ""
             },
             createdAt: new Date(),
             updatedAt: new Date()
@@ -41,12 +45,16 @@ class MemoryStore {
             phoneNumber: 9123456789,
             password: hashedPassword,
             role: "student",
+            isVerified: true,
+            refreshToken: "",
             profile: {
                 bio: "Experienced MERN Stack Developer with 2+ years building responsive web apps.",
                 skills: ["React.js", "Node.js", "Express.js", "MongoDB", "Tailwind CSS", "Next.js"],
                 profilePhoto: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
                 resume: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-                resumeOriginalName: "Patel_MERN_Resume.pdf"
+                resumeOriginalName: "Patel_MERN_Resume.pdf",
+                resumePublicId: "",
+                profilePhotoPublicId: ""
             },
             createdAt: new Date(),
             updatedAt: new Date()

@@ -33,3 +33,18 @@ export const updateProfileSchema = z.object({
     skills: z.union([z.string(), z.array(z.string())]).optional()
 });
 
+export const forgotPasswordSchema = z.object({
+    email: z.string().trim().email("Please provide a valid email address")
+});
+
+export const resetPasswordSchema = z.object({
+    password: z.string().min(6, "New password must be at least 6 characters")
+});
+
+export const tokenParamSchema = z.object({
+    token: z.string().min(1, "Token is required")
+});
+
+export const refreshTokenSchema = z.object({
+    refreshToken: z.string().optional()
+});
