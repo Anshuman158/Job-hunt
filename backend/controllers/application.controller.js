@@ -2,17 +2,15 @@ import { Application } from "../models/application.model.js";
 import { Job } from "../models/job.model.js";
 import { isDbConnected } from "../utils/db.js";
 import { mockStore } from "../utils/mockStore.js";
+import { ApiError } from "../utils/ApiError.js";
 
-export const applyJob = async (req, res) => {
+export const applyJob = async (req, res, next) => {
     try {
         const userId = req.id;
         const jobId = req.params.id;
 
         if (!jobId) {
-            return res.status(400).json({
-                message: "Job id is required.",
-                success: false
-            });
+            return next(new ApiError(400, "Job id is required."));
         }
 
         if (!isDbConnected()) {
@@ -21,17 +19,11 @@ export const applyJob = async (req, res) => {
                 a.applicant.toString() === userId.toString()
             );
             if (existing) {
-                return res.status(400).json({
-                    message: "You have already applied for this job",
-                    success: false
-                });
+                return next(new ApiError(409, "You have already applied for this job"));
             }
             const job = mockStore.jobs.find(j => j._id.toString() === jobId.toString());
             if (!job) {
-                return res.status(404).json({
-                    message: "Job not found",
-                    success: false
-                });
+                return next(new ApiError(404, "Job not found"));
             }
 
             const newApp = {
@@ -55,19 +47,13 @@ export const applyJob = async (req, res) => {
         // check if user has already applied
         const existingApplication = await Application.findOne({ job: jobId, applicant: userId });
         if (existingApplication) {
-            return res.status(400).json({
-                message: "You have already applied for this job",
-                success: false
-            });
+            return next(new ApiError(409, "You have already applied for this job"));
         }
 
         // check if job exists
         const job = await Job.findById(jobId);
         if (!job) {
-            return res.status(404).json({
-                message: "Job not found",
-                success: false
-            });
+            return next(new ApiError(404, "Job not found"));
         }
 
         // create new application
@@ -84,15 +70,11 @@ export const applyJob = async (req, res) => {
             success: true
         });
     } catch (error) {
-        console.error("Apply job error:", error);
-        return res.status(500).json({
-            message: "Internal server error applying to job",
-            success: false
-        });
+        next(error);
     }
 };
 
-export const getAppliedJobs = async (req, res) => {
+export const getAppliedJobs = async (req, res, next) => {
     try {
         const userId = req.id;
 
@@ -129,26 +111,19 @@ export const getAppliedJobs = async (req, res) => {
             success: true
         });
     } catch (error) {
-        console.error("Get applied jobs error:", error);
-        return res.status(500).json({
-            message: "Internal server error fetching applied jobs",
-            success: false
-        });
+        next(error);
     }
 };
 
 // Admin sees how many applicants applied for this job
-export const getApplicants = async (req, res) => {
+export const getApplicants = async (req, res, next) => {
     try {
         const jobId = req.params.id;
 
         if (!isDbConnected()) {
             const job = mockStore.jobs.find(j => j._id.toString() === jobId.toString());
             if (!job) {
-                return res.status(404).json({
-                    message: 'Job not found.',
-                    success: false
-                });
+                return next(new ApiError(404, "Job not found."));
             }
             const apps = mockStore.applications.filter(a => a.job.toString() === jobId.toString());
             const populatedApps = apps.map(a => {
@@ -175,25 +150,18 @@ export const getApplicants = async (req, res) => {
             }
         });
         if (!job) {
-            return res.status(404).json({
-                message: 'Job not found.',
-                success: false
-            });
+            return next(new ApiError(404, "Job not found."));
         }
         return res.status(200).json({
             job,
             success: true
         });
     } catch (error) {
-        console.error("Get applicants error:", error);
-        return res.status(500).json({
-            message: "Internal server error fetching applicants",
-            success: false
-        });
+        next(error);
     }
 };
 
-export const updateStatus = async (req, res) => {
+export const updateStatus = async (req, res, next) => {
     try {
         const { status } = req.body;
         const applicationId = req.params.id;
@@ -201,21 +169,18 @@ export const updateStatus = async (req, res) => {
 
         const ALLOWED_STATUSES = ["pending", "accepted", "rejected"];
         if (!status || !ALLOWED_STATUSES.includes(status.toLowerCase())) {
-            return res.status(400).json({
-                message: `Status must be one of: ${ALLOWED_STATUSES.join(", ")}`,
-                success: false
-            });
+            return next(new ApiError(400, `Status must be one of: ${ALLOWED_STATUSES.join(", ")}`));
         }
 
         if (!isDbConnected()) {
             const app = mockStore.applications.find(a => a._id.toString() === applicationId.toString());
             if (!app) {
-                return res.status(404).json({ message: "Application not found.", success: false });
+                return next(new ApiError(404, "Application not found."));
             }
             // Verify the requester owns the job this application belongs to
             const job = mockStore.jobs.find(j => j._id.toString() === app.job.toString());
             if (!job || job.created_by?.toString() !== requesterId.toString()) {
-                return res.status(403).json({ message: "Not authorised to update this application.", success: false });
+                return next(new ApiError(403, "Not authorised to update this application."));
             }
             app.status = status.toLowerCase();
             app.updatedAt = new Date();
@@ -224,10 +189,10 @@ export const updateStatus = async (req, res) => {
 
         const application = await Application.findById(applicationId).populate("job");
         if (!application) {
-            return res.status(404).json({ message: "Application not found.", success: false });
+            return next(new ApiError(404, "Application not found."));
         }
         if (application.job.created_by?.toString() !== requesterId.toString()) {
-            return res.status(403).json({ message: "Not authorised to update this application.", success: false });
+            return next(new ApiError(403, "Not authorised to update this application."));
         }
 
         application.status = status.toLowerCase();
@@ -235,7 +200,6 @@ export const updateStatus = async (req, res) => {
 
         return res.status(200).json({ message: "Status updated successfully.", success: true });
     } catch (error) {
-        console.error("Update status error:", error);
-        return res.status(500).json({ message: "Internal server error updating applicant status", success: false });
+        next(error);
     }
 };

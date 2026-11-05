@@ -18,4 +18,8 @@ const applicationSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+// ── Compound unique index to prevent duplicate applications ─────────────────
+applicationSchema.index({ job: 1, applicant: 1 }, { unique: true });
+applicationSchema.index({ applicant: 1, createdAt: -1 });
+
 export const Application = mongoose.model("Application", applicationSchema);

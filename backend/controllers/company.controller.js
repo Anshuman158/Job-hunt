@@ -2,24 +2,19 @@ import { Company } from "../models/company.model.js";
 import getDataUri from "../utils/datauri.js";
 import { isDbConnected } from "../utils/db.js";
 import { mockStore } from "../utils/mockStore.js";
+import { ApiError } from "../utils/ApiError.js";
 
-export const registerCompany = async (req, res) => {
+export const registerCompany = async (req, res, next) => {
     try {
         const { companyName } = req.body;
         if (!companyName) {
-            return res.status(400).json({
-                message: "Company name is required.",
-                success: false
-            });
+            return next(new ApiError(400, "Company name is required."));
         }
 
         if (!isDbConnected()) {
             const existing = mockStore.companies.find(c => c.name.toLowerCase() === companyName.toLowerCase());
             if (existing) {
-                return res.status(400).json({
-                    message: "You can't register same company.",
-                    success: false
-                });
+                return next(new ApiError(409, "A company with this name already exists."));
             }
             const newCompany = {
                 _id: "cmp_" + Date.now().toString(),
@@ -42,10 +37,7 @@ export const registerCompany = async (req, res) => {
 
         let company = await Company.findOne({ name: companyName });
         if (company) {
-            return res.status(400).json({
-                message: "You can't register same company.",
-                success: false
-            });
+            return next(new ApiError(409, "A company with this name already exists."));
         }
         company = await Company.create({
             name: companyName,
@@ -58,15 +50,11 @@ export const registerCompany = async (req, res) => {
             success: true
         });
     } catch (error) {
-        console.error("Register company error:", error);
-        return res.status(500).json({
-            message: "Internal server error during company registration",
-            success: false
-        });
+        next(error);
     }
 };
 
-export const getCompany = async (req, res) => {
+export const getCompany = async (req, res, next) => {
     try {
         const userId = req.id;
         if (!isDbConnected()) {
@@ -82,24 +70,17 @@ export const getCompany = async (req, res) => {
             success: true
         });
     } catch (error) {
-        console.error("Get company error:", error);
-        return res.status(500).json({
-            message: "Internal server error getting companies",
-            success: false
-        });
+        next(error);
     }
 };
 
-export const getCompanyById = async (req, res) => {
+export const getCompanyById = async (req, res, next) => {
     try {
         const companyId = req.params.id;
         if (!isDbConnected()) {
             const company = mockStore.companies.find(c => c._id.toString() === companyId.toString());
             if (!company) {
-                return res.status(404).json({
-                    message: "Company not found.",
-                    success: false
-                });
+                return next(new ApiError(404, "Company not found."));
             }
             return res.status(200).json({
                 company,
@@ -108,25 +89,18 @@ export const getCompanyById = async (req, res) => {
         }
         const company = await Company.findById(companyId);
         if (!company) {
-            return res.status(404).json({
-                message: "Company not found.",
-                success: false
-            });
+            return next(new ApiError(404, "Company not found."));
         }
         return res.status(200).json({
             company,
             success: true
         });
     } catch (error) {
-        console.error("Get company by id error:", error);
-        return res.status(500).json({
-            message: "Internal server error getting company details",
-            success: false
-        });
+        next(error);
     }
 };
 
-export const updateCompany = async (req, res) => {
+export const updateCompany = async (req, res, next) => {
     try {
         const { name, description, website, location } = req.body;
         const file = req.file;
@@ -140,10 +114,7 @@ export const updateCompany = async (req, res) => {
         if (!isDbConnected()) {
             const company = mockStore.companies.find(c => c._id.toString() === req.params.id.toString());
             if (!company) {
-                return res.status(404).json({
-                    message: "Company not found.",
-                    success: false
-                });
+                return next(new ApiError(404, "Company not found."));
             }
             if (name) company.name = name;
             if (description !== undefined) company.description = description;
@@ -159,18 +130,17 @@ export const updateCompany = async (req, res) => {
             });
         }
 
-        const updateData = { name, description, website, location };
-        if (logoUrl) {
-            updateData.logo = logoUrl;
-        }
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (description !== undefined) updateData.description = description;
+        if (website !== undefined) updateData.website = website;
+        if (location !== undefined) updateData.location = location;
+        if (logoUrl) updateData.logo = logoUrl;
 
-        const company = await Company.findByIdAndUpdate(req.params.id, updateData, { new: true });
+        const company = await Company.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
 
         if (!company) {
-            return res.status(404).json({
-                message: "Company not found.",
-                success: false
-            });
+            return next(new ApiError(404, "Company not found."));
         }
         return res.status(200).json({
             message: "Company information updated.",
@@ -179,10 +149,6 @@ export const updateCompany = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Update company error:", error);
-        return res.status(500).json({
-            message: "Internal server error updating company",
-            success: false
-        });
+        next(error);
     }
 };

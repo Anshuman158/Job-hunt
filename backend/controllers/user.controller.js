@@ -5,17 +5,18 @@ import getDataUri from "../utils/datauri.js";
 import { isDbConnected } from "../utils/db.js";
 import { mockStore } from "../utils/mockStore.js";
 import { OAuth2Client } from "google-auth-library";
+import { ApiError } from "../utils/ApiError.js";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// ── Helper: sign a JWT (never use a hardcoded fallback secret) ───────────
+// ── Helper: sign a JWT ──────────────────────────────────────────────────────
 const signToken = (userId, role) => {
     const secret = process.env.SECRET_KEY;
-    if (!secret) throw new Error("SECRET_KEY is not configured.");
+    if (!secret) throw new ApiError(500, "SECRET_KEY is not configured.");
     return jwt.sign({ userId, role }, secret, { expiresIn: "1d" });
 };
 
-// ── Helper: strip password before sending user data ──────────────────────
+// ── Helper: strip password before sending user data ─────────────────────────
 const sanitizeUser = (user) => ({
     _id: user._id,
     fullname: user.fullname,
@@ -25,7 +26,7 @@ const sanitizeUser = (user) => ({
     profile: user.profile
 });
 
-// ── Helper: common cookie options ────────────────────────────────────────
+// ── Helper: common cookie options ───────────────────────────────────────────
 const cookieOptions = {
     maxAge: 24 * 60 * 60 * 1000, // 1 day
     httpOnly: true,
@@ -33,14 +34,10 @@ const cookieOptions = {
     secure: process.env.NODE_ENV === "production"
 };
 
-// ── REGISTER ─────────────────────────────────────────────────────────────
-export const register = async (req, res) => {
+// ── REGISTER ────────────────────────────────────────────────────────────────
+export const register = async (req, res, next) => {
     try {
         const { fullname, email, phoneNumber, password, role } = req.body;
-
-        if (!fullname || !email || !phoneNumber || !password || !role) {
-            return res.status(400).json({ message: "All fields are required.", success: false });
-        }
 
         const file = req.file;
         let profilePhotoUrl = "";
@@ -50,15 +47,15 @@ export const register = async (req, res) => {
         }
 
         if (!isDbConnected()) {
-            const existing = mockStore.users.find((u) => u.email === email);
+            const existing = mockStore.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
             if (existing) {
-                return res.status(409).json({ message: "An account with this email already exists.", success: false });
+                return next(new ApiError(409, "An account with this email already exists."));
             }
             const hashedPassword = await bcrypt.hash(password, 12);
             const newUser = {
                 _id: "usr_" + Date.now().toString(),
                 fullname,
-                email,
+                email: email.toLowerCase(),
                 phoneNumber: Number(phoneNumber),
                 password: hashedPassword,
                 role,
@@ -70,15 +67,15 @@ export const register = async (req, res) => {
             return res.status(201).json({ message: "Account created successfully.", success: true });
         }
 
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({ email: email.toLowerCase() });
         if (existingUser) {
-            return res.status(409).json({ message: "An account with this email already exists.", success: false });
+            return next(new ApiError(409, "An account with this email already exists."));
         }
 
         const hashedPassword = await bcrypt.hash(password, 12);
         await User.create({
             fullname,
-            email,
+            email: email.toLowerCase(),
             phoneNumber,
             password: hashedPassword,
             role,
@@ -87,44 +84,37 @@ export const register = async (req, res) => {
 
         return res.status(201).json({ message: "Account created successfully.", success: true });
     } catch (error) {
-        console.error("Register error:", error);
-        return res.status(500).json({ message: "Registration failed. Please try again.", success: false });
+        next(error);
     }
 };
 
-// ── LOGIN ────────────────────────────────────────────────────────────────
-export const login = async (req, res) => {
+// ── LOGIN ───────────────────────────────────────────────────────────────────
+export const login = async (req, res, next) => {
     try {
         const { email, password, role } = req.body;
 
-        if (!email || !password || !role) {
-            return res.status(400).json({ message: "Email, password, and role are required.", success: false });
-        }
-
         let user;
         if (!isDbConnected()) {
-            user = mockStore.users.find((u) => u.email === email);
+            user = mockStore.users.find((u) => u.email.toLowerCase() === email.toLowerCase());
         } else {
-            user = await User.findOne({ email });
+            user = await User.findOne({ email: email.toLowerCase() });
         }
 
-        // Generic message: don't reveal whether email exists
         if (!user) {
-            return res.status(401).json({ message: "Incorrect email or password.", success: false });
+            return next(new ApiError(401, "Incorrect email or password."));
         }
 
-        // Google-only accounts have no password
         if (!user.password) {
-            return res.status(401).json({ message: "This account uses Google Sign-In. Please sign in with Google.", success: false });
+            return next(new ApiError(401, "This account uses Google Sign-In. Please sign in with Google."));
         }
 
         const isPasswordMatch = await bcrypt.compare(password, user.password);
         if (!isPasswordMatch) {
-            return res.status(401).json({ message: "Incorrect email or password.", success: false });
+            return next(new ApiError(401, "Incorrect email or password."));
         }
 
         if (role !== user.role) {
-            return res.status(403).json({ message: "Account not found with this role.", success: false });
+            return next(new ApiError(403, "Account not found with this role."));
         }
 
         const token = signToken(user._id, user.role);
@@ -136,12 +126,11 @@ export const login = async (req, res) => {
             success: true
         });
     } catch (error) {
-        console.error("Login error:", error);
-        return res.status(500).json({ message: "Login failed. Please try again.", success: false });
+        next(error);
     }
 };
 
-// ── LOGOUT ───────────────────────────────────────────────────────────────
+// ── LOGOUT ──────────────────────────────────────────────────────────────────
 export const logout = (_req, res) => {
     return res.status(200).cookie("token", "", { maxAge: 0, httpOnly: true, sameSite: "lax" }).json({
         message: "Logged out successfully.",
@@ -149,8 +138,8 @@ export const logout = (_req, res) => {
     });
 };
 
-// ── UPDATE PROFILE ────────────────────────────────────────────────────────
-export const updateProfile = async (req, res) => {
+// ── UPDATE PROFILE ───────────────────────────────────────────────────────────
+export const updateProfile = async (req, res, next) => {
     try {
         const { fullname, email, phoneNumber, bio, skills } = req.body;
         const file = req.file;
@@ -165,10 +154,10 @@ export const updateProfile = async (req, res) => {
 
         if (!isDbConnected()) {
             const user = mockStore.users.find((u) => u._id.toString() === userId.toString());
-            if (!user) return res.status(404).json({ message: "User not found.", success: false });
+            if (!user) return next(new ApiError(404, "User not found."));
 
             if (fullname) user.fullname = fullname;
-            if (email) user.email = email;
+            if (email) user.email = email.toLowerCase();
             if (phoneNumber) user.phoneNumber = phoneNumber;
             if (bio !== undefined) user.profile.bio = bio;
             if (skillsArray) user.profile.skills = skillsArray;
@@ -182,10 +171,10 @@ export const updateProfile = async (req, res) => {
         }
 
         const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ message: "User not found.", success: false });
+        if (!user) return next(new ApiError(404, "User not found."));
 
         if (fullname) user.fullname = fullname;
-        if (email) user.email = email;
+        if (email) user.email = email.toLowerCase();
         if (phoneNumber) user.phoneNumber = phoneNumber;
         if (bio !== undefined) user.profile.bio = bio;
         if (skillsArray) user.profile.skills = skillsArray;
@@ -198,18 +187,14 @@ export const updateProfile = async (req, res) => {
         await user.save();
         return res.status(200).json({ message: "Profile updated successfully.", user: sanitizeUser(user), success: true });
     } catch (error) {
-        console.error("Update profile error:", error);
-        return res.status(500).json({ message: "Profile update failed. Please try again.", success: false });
+        next(error);
     }
 };
 
-// ── GOOGLE AUTH ───────────────────────────────────────────────────────────
-export const googleAuth = async (req, res) => {
+// ── GOOGLE AUTH ──────────────────────────────────────────────────────────────
+export const googleAuth = async (req, res, next) => {
     try {
         const { token, role = "student" } = req.body;
-        if (!token) {
-            return res.status(400).json({ message: "Google credential token is required.", success: false });
-        }
 
         const googleClientId = process.env.GOOGLE_CLIENT_ID;
         let payload;
@@ -222,14 +207,12 @@ export const googleAuth = async (req, res) => {
                 });
                 payload = ticket.getPayload();
             } catch (verifyErr) {
-                // Network fallback: decode without verification (dev-only)
-                // In production this branch should not be reached; boot guard prevents missing SECRET_KEY.
                 console.warn("Google cert verification failed, using offline decode:", verifyErr.message);
                 const decoded = jwt.decode(token);
                 if (decoded && decoded.email) {
                     payload = decoded;
                 } else {
-                    return res.status(401).json({ message: "Invalid Google token. Please try again.", success: false });
+                    return next(new ApiError(401, "Invalid Google token. Please try again."));
                 }
             }
         } else {
@@ -237,21 +220,21 @@ export const googleAuth = async (req, res) => {
             if (decoded && decoded.email) {
                 payload = decoded;
             } else {
-                return res.status(400).json({ message: "Invalid token. Configure GOOGLE_CLIENT_ID in backend/.env", success: false });
+                return next(new ApiError(400, "Invalid token. Configure GOOGLE_CLIENT_ID in backend/.env"));
             }
         }
 
-        const email = payload?.email;
+        const email = payload?.email?.toLowerCase();
         const fullname = payload?.name || payload?.given_name || (email ? email.split("@")[0] : "Google User");
         const profilePhoto = payload?.picture || "";
 
         if (!email) {
-            return res.status(400).json({ message: "Unable to retrieve email from Google token.", success: false });
+            return next(new ApiError(400, "Unable to retrieve email from Google token."));
         }
 
         let user;
         if (!isDbConnected()) {
-            user = mockStore.users.find((u) => u.email === email);
+            user = mockStore.users.find((u) => u.email.toLowerCase() === email);
             if (!user) {
                 user = {
                     _id: "usr_g_" + Date.now().toString(),
@@ -290,7 +273,6 @@ export const googleAuth = async (req, res) => {
             success: true
         });
     } catch (error) {
-        console.error("Google Auth error:", error);
-        return res.status(500).json({ message: "Google authentication failed. Please try again.", success: false });
+        next(error);
     }
 };

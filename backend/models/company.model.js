@@ -4,19 +4,24 @@ const companySchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
+        trim: true
     },
     description: {
-        type: String
+        type: String,
+        default: ""
     },
     website: {
-        type: String
+        type: String,
+        default: ""
     },
     location: {
-        type: String
+        type: String,
+        default: ""
     },
     logo: {
-        type: String // URL or Data URI to company logo
+        type: String,
+        default: ""
     },
     userId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -24,5 +29,8 @@ const companySchema = new mongoose.Schema({
         required: true
     }
 }, { timestamps: true });
+
+// ── Indexes for query performance ───────────────────────────────────────────
+companySchema.index({ userId: 1 });
 
 export const Company = mongoose.model("Company", companySchema);

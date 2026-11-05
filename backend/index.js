@@ -99,22 +99,15 @@ app.get("/api/v1/health", (_req, res) => {
     });
 });
 
+import { errorHandler } from "./middlewares/error.middleware.js";
+
 // ── Global 404 handler ────────────────────────────────────────────────────
 app.use((_req, res) => {
     res.status(404).json({ message: "Route not found", success: false });
 });
 
 // ── Global error handler ──────────────────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
-app.use((err, _req, res, _next) => {
-    console.error("Unhandled error:", err);
-    const status = err.status || err.statusCode || 500;
-    const message =
-        process.env.NODE_ENV === "production"
-            ? "Internal server error"
-            : err.message || "Internal server error";
-    res.status(status).json({ message, success: false });
-});
+app.use(errorHandler);
 
 // ── Start server ──────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 8000;

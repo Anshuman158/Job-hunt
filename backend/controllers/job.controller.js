@@ -1,21 +1,15 @@
 import { Job } from "../models/job.model.js";
 import { isDbConnected } from "../utils/db.js";
 import { mockStore } from "../utils/mockStore.js";
-import { fetchLiveRemoteJobs, REAL_TECH_JOBS } from "../utils/jobFetcher.js";
+import { fetchLiveRemoteJobs } from "../utils/jobFetcher.js";
+import { ApiError } from "../utils/ApiError.js";
 
 // Recruiter posts job (supports internal apply or external company link)
-export const postJob = async (req, res) => {
+export const postJob = async (req, res, next) => {
     try {
         const { title, description, requirements, salary, location, jobType, experience, experienceLevel, position, companyId, applyUrl } = req.body;
         const userId = req.id;
         const exp = experience !== undefined && experience !== "" ? experience : experienceLevel;
-
-        if (!title || !description || !requirements || salary === undefined || salary === "" || !location || !jobType || exp === undefined || exp === "" || !position || !companyId) {
-            return res.status(400).json({
-                message: "Something is missing.",
-                success: false
-            });
-        }
 
         const requirementsArray = typeof requirements === "string" 
             ? requirements.split(",").map(r => r.trim()).filter(Boolean)
@@ -34,7 +28,7 @@ export const postJob = async (req, res) => {
                 location,
                 jobType,
                 experienceLevel: Number(exp),
-                position: Number(position),
+                position: Number(position || 1),
                 company: companyId,
                 companyName: companyObj?.name || "Company",
                 companyLogo: companyObj?.logo || "",
@@ -62,7 +56,7 @@ export const postJob = async (req, res) => {
             location,
             jobType,
             experienceLevel: Number(exp),
-            position: Number(position),
+            position: Number(position || 1),
             company: companyId,
             applyUrl: applyUrl || "",
             isExternal,
@@ -76,19 +70,18 @@ export const postJob = async (req, res) => {
             success: true
         });
     } catch (error) {
-        console.error("Post job error:", error);
-        return res.status(500).json({
-            message: "Internal server error posting job",
-            success: false
-        });
+        next(error);
     }
 };
 
-// Students/everyone get all jobs (with search/filter query)
-export const getAllJobs = async (req, res) => {
+// Students/everyone get all jobs with optional search query & pagination
+export const getAllJobs = async (req, res, next) => {
     try {
-        const keyword = (req.query.keyword || "").toLowerCase();
-        
+        const keyword = (req.query.keyword || "").trim().toLowerCase();
+        const hasPagination = req.query.page !== undefined || req.query.limit !== undefined;
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || 12));
+
         if (!isDbConnected()) {
             let filtered = mockStore.jobs;
             if (keyword) {
@@ -97,11 +90,19 @@ export const getAllJobs = async (req, res) => {
                     j.description.toLowerCase().includes(keyword) ||
                     j.location.toLowerCase().includes(keyword) ||
                     (j.companyName && j.companyName.toLowerCase().includes(keyword)) ||
-                    (j.requirements && j.requirements.some(r => r.toLowerCase().includes(keyword)))
+                    (j.requirements && j.requirements.some(r => r.toLowerCase().includes(keyword))) ||
+                    (j.source && j.source.toLowerCase().includes(keyword))
                 );
             }
+
+            const totalJobs = filtered.length;
+            const totalPages = hasPagination ? Math.ceil(totalJobs / limit) || 1 : 1;
+            const paginatedList = hasPagination 
+                ? filtered.slice((page - 1) * limit, page * limit)
+                : filtered;
+
             // Populate company details
-            const populated = filtered.map(j => {
+            const populated = paginatedList.map(j => {
                 if (j.isExternal || j.companyName) {
                     return {
                         ...j,
@@ -120,22 +121,40 @@ export const getAllJobs = async (req, res) => {
                     company: companyObj || { name: "Tech Corp", location: j.location }
                 };
             });
+
             return res.status(200).json({
                 jobs: populated,
+                totalJobs,
+                totalPages,
+                currentPage: page,
+                limit: hasPagination ? limit : totalJobs,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
                 success: true
             });
         }
 
-        const query = {
-            $or: [
+        // Mongoose query with pagination
+        const query = {};
+        if (keyword) {
+            query.$or = [
                 { title: { $regex: keyword, $options: "i" } },
                 { description: { $regex: keyword, $options: "i" } },
                 { location: { $regex: keyword, $options: "i" } },
-            ]
-        };
-        const jobs = await Job.find(query).populate({
-            path: "company"
-        }).sort({ createdAt: -1 });
+                { companyName: { $regex: keyword, $options: "i" } }
+            ];
+        }
+
+        const totalJobs = await Job.countDocuments(query);
+        const totalPages = hasPagination ? Math.ceil(totalJobs / limit) || 1 : 1;
+
+        let jobQuery = Job.find(query).populate({ path: "company" }).sort({ createdAt: -1 });
+
+        if (hasPagination) {
+            jobQuery = jobQuery.skip((page - 1) * limit).limit(limit);
+        }
+
+        const jobs = await jobQuery;
 
         const formattedJobs = jobs.map(j => {
             const plain = j.toObject();
@@ -152,29 +171,28 @@ export const getAllJobs = async (req, res) => {
 
         return res.status(200).json({
             jobs: formattedJobs,
+            totalJobs,
+            totalPages,
+            currentPage: page,
+            limit: hasPagination ? limit : totalJobs,
+            hasNextPage: page < totalPages,
+            hasPrevPage: page > 1,
             success: true
         });
     } catch (error) {
-        console.error("Get all jobs error:", error);
-        return res.status(500).json({
-            message: "Internal server error fetching jobs",
-            success: false
-        });
+        next(error);
     }
 };
 
 // Student get job by id
-export const getJobById = async (req, res) => {
+export const getJobById = async (req, res, next) => {
     try {
         const jobId = req.params.id;
 
         if (!isDbConnected()) {
             const job = mockStore.jobs.find(j => j._id.toString() === jobId.toString());
             if (!job) {
-                return res.status(404).json({
-                    message: "Job not found.",
-                    success: false
-                });
+                return next(new ApiError(404, "Job not found."));
             }
             let companyObj;
             if (job.isExternal || job.companyName) {
@@ -204,10 +222,7 @@ export const getJobById = async (req, res) => {
             path: "company"
         });
         if (!job) {
-            return res.status(404).json({
-                message: "Job not found.",
-                success: false
-            });
+            return next(new ApiError(404, "Job not found."));
         }
 
         const plainJob = job.toObject();
@@ -222,16 +237,12 @@ export const getJobById = async (req, res) => {
 
         return res.status(200).json({ job: plainJob, success: true });
     } catch (error) {
-        console.error("Get job by id error:", error);
-        return res.status(500).json({
-            message: "Internal server error fetching job details",
-            success: false
-        });
+        next(error);
     }
 };
 
 // Recruiter get all jobs created by them
-export const getAdminJobs = async (req, res) => {
+export const getAdminJobs = async (req, res, next) => {
     try {
         const adminId = req.id;
 
@@ -259,21 +270,16 @@ export const getAdminJobs = async (req, res) => {
             success: true
         });
     } catch (error) {
-        console.error("Get admin jobs error:", error);
-        return res.status(500).json({
-            message: "Internal server error fetching admin jobs",
-            success: false
-        });
+        next(error);
     }
 };
 
 // Sync live external jobs on demand
-export const syncLiveJobs = async (req, res) => {
+export const syncLiveJobs = async (req, res, next) => {
     try {
         const liveJobs = await fetchLiveRemoteJobs();
         if (!isDbConnected()) {
             if (liveJobs.length > 0) {
-                // Avoid duplicates by id
                 for (const j of liveJobs) {
                     if (!mockStore.jobs.some(existing => existing._id === j._id)) {
                         mockStore.jobs.push(j);
@@ -287,7 +293,6 @@ export const syncLiveJobs = async (req, res) => {
             });
         }
 
-        // Real MongoDB sync
         if (liveJobs.length > 0) {
             for (const j of liveJobs) {
                 const existing = await Job.findOne({ title: j.title, companyName: j.companyName });
@@ -303,10 +308,6 @@ export const syncLiveJobs = async (req, res) => {
             count: liveJobs.length
         });
     } catch (error) {
-        console.error("Sync live jobs error:", error);
-        return res.status(500).json({
-            message: "Failed to sync live jobs",
-            success: false
-        });
+        next(error);
     }
 };

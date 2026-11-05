@@ -3,12 +3,15 @@ import mongoose from "mongoose";
 const userSchema = new mongoose.Schema({
     fullname: {
         type: String,
-        required: true
+        required: true,
+        trim: true
     },
     email: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
+        trim: true,
+        lowercase: true
     },
     phoneNumber: {
         type: Number,
@@ -26,8 +29,8 @@ const userSchema = new mongoose.Schema({
     profile: {
         bio: { type: String, default: "" },
         skills: [{ type: String }],
-        resume: { type: String }, // URL or base64 data to resume file
-        resumeOriginalName: { type: String },
+        resume: { type: String, default: "" }, // URL or base64 data to resume file
+        resumeOriginalName: { type: String, default: "" },
         company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
         profilePhoto: {
             type: String,
@@ -35,5 +38,8 @@ const userSchema = new mongoose.Schema({
         }
     }
 }, { timestamps: true });
+
+// ── Indexes for query performance ───────────────────────────────────────────
+userSchema.index({ role: 1 });
 
 export const User = mongoose.model('User', userSchema);

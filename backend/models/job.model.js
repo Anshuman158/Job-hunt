@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 const jobSchema = new mongoose.Schema({
     title: {
         type: String,
-        required: true
+        required: true,
+        trim: true
     },
     description: {
         type: String,
@@ -22,11 +23,13 @@ const jobSchema = new mongoose.Schema({
     },
     location: {
         type: String,
-        required: true
+        required: true,
+        trim: true
     },
     jobType: {
         type: String,
-        required: true
+        required: true,
+        trim: true
     },
     position: {
         type: Number,
@@ -69,5 +72,12 @@ const jobSchema = new mongoose.Schema({
         }
     ]
 }, { timestamps: true });
+
+// ── Indexes for query performance and full-text search ──────────────────────
+jobSchema.index({ title: "text", description: "text", location: "text" });
+jobSchema.index({ company: 1 });
+jobSchema.index({ created_by: 1 });
+jobSchema.index({ createdAt: -1 });
+jobSchema.index({ isExternal: 1 });
 
 export const Job = mongoose.model("Job", jobSchema);
