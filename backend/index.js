@@ -2,6 +2,10 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import dotenv from "dotenv";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import sanitizeMongo from "./middlewares/sanitizeMongo.js";
+import hpp from "hpp";
 import connectDB from "./utils/db.js";
 import userRoute from "./routes/user.route.js";
 import companyRoute from "./routes/company.route.js";
@@ -10,13 +14,18 @@ import applicationRoute from "./routes/application.route.js";
 
 dotenv.config();
 
+// Guard: refuse to boot without a real SECRET_KEY in production
+if (process.env.NODE_ENV === "production" && !process.env.SECRET_KEY) {
+    console.error("FATAL: SECRET_KEY env variable is not set. Refusing to start in production.");
+    process.exit(1);
+}
+
 const app = express();
 
-// middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+// ── Security headers (Helmet) ──────────────────────────────────────────────
+app.use(helmet());
 
+// ── CORS ───────────────────────────────────────────────────────────────────
 const allowedOrigins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -27,7 +36,12 @@ const allowedOrigins = [
 
 const corsOptions = {
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")) {
+        if (
+            !origin ||
+            allowedOrigins.includes(origin) ||
+            origin.startsWith("http://localhost:") ||
+            origin.startsWith("http://127.0.0.1:")
+        ) {
             callback(null, true);
         } else {
             callback(new Error("Not allowed by CORS"));
@@ -37,23 +51,74 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-const PORT = process.env.PORT || 8000;
+// ── Body parsers (with size limits) ───────────────────────────────────────
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
+app.use(cookieParser());
 
-// api routes
+// ── NoSQL-injection sanitization (body & params only — Express 5 compat) ──
+app.use(sanitizeMongo);
+
+// ── HTTP Parameter Pollution protection ───────────────────────────────────
+app.use(hpp());
+
+// ── Global rate limiter (all /api routes) ─────────────────────────────────
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,  // 15 minutes
+    max: 200,                   // 200 requests per window per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many requests, please try again later.", success: false }
+});
+app.use("/api/", globalLimiter);
+
+// ── Stricter limiter for auth endpoints ───────────────────────────────────
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,  // 15 minutes
+    max: 20,                    // only 20 login/register attempts per window
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many authentication attempts, please try again after 15 minutes.", success: false }
+});
+app.use("/api/v1/user/login", authLimiter);
+app.use("/api/v1/user/register", authLimiter);
+app.use("/api/v1/user/google-auth", authLimiter);
+
+// ── API routes ─────────────────────────────────────────────────────────────
 app.use("/api/v1/user", userRoute);
 app.use("/api/v1/company", companyRoute);
 app.use("/api/v1/job", jobRoute);
 app.use("/api/v1/application", applicationRoute);
 
-// health check endpoint
-app.get("/api/v1/health", (req, res) => {
+// ── Health check ──────────────────────────────────────────────────────────
+app.get("/api/v1/health", (_req, res) => {
     return res.status(200).json({
         message: "Job Hunt Backend is running smoothly",
-        success: true
+        success: true,
+        env: process.env.NODE_ENV || "development"
     });
 });
 
+// ── Global 404 handler ────────────────────────────────────────────────────
+app.use((_req, res) => {
+    res.status(404).json({ message: "Route not found", success: false });
+});
+
+// ── Global error handler ──────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+    console.error("Unhandled error:", err);
+    const status = err.status || err.statusCode || 500;
+    const message =
+        process.env.NODE_ENV === "production"
+            ? "Internal server error"
+            : err.message || "Internal server error";
+    res.status(status).json({ message, success: false });
+});
+
+// ── Start server ──────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
     connectDB();
-    console.log(`Server running at port ${PORT}`);
+    console.log(`Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`);
 });

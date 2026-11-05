@@ -197,9 +197,12 @@ export const updateStatus = async (req, res) => {
     try {
         const { status } = req.body;
         const applicationId = req.params.id;
-        if (!status) {
+        const requesterId = req.id;
+
+        const ALLOWED_STATUSES = ["pending", "accepted", "rejected"];
+        if (!status || !ALLOWED_STATUSES.includes(status.toLowerCase())) {
             return res.status(400).json({
-                message: 'status is required',
+                message: `Status must be one of: ${ALLOWED_STATUSES.join(", ")}`,
                 success: false
             });
         }
@@ -207,41 +210,32 @@ export const updateStatus = async (req, res) => {
         if (!isDbConnected()) {
             const app = mockStore.applications.find(a => a._id.toString() === applicationId.toString());
             if (!app) {
-                return res.status(404).json({
-                    message: "Application not found.",
-                    success: false
-                });
+                return res.status(404).json({ message: "Application not found.", success: false });
+            }
+            // Verify the requester owns the job this application belongs to
+            const job = mockStore.jobs.find(j => j._id.toString() === app.job.toString());
+            if (!job || job.created_by?.toString() !== requesterId.toString()) {
+                return res.status(403).json({ message: "Not authorised to update this application.", success: false });
             }
             app.status = status.toLowerCase();
             app.updatedAt = new Date();
-            return res.status(200).json({
-                message: "Status updated successfully.",
-                success: true
-            });
+            return res.status(200).json({ message: "Status updated successfully.", success: true });
         }
 
-        const application = await Application.findOne({ _id: applicationId });
+        const application = await Application.findById(applicationId).populate("job");
         if (!application) {
-            return res.status(404).json({
-                message: "Application not found.",
-                success: false
-            });
+            return res.status(404).json({ message: "Application not found.", success: false });
+        }
+        if (application.job.created_by?.toString() !== requesterId.toString()) {
+            return res.status(403).json({ message: "Not authorised to update this application.", success: false });
         }
 
-        // update status
         application.status = status.toLowerCase();
         await application.save();
 
-        return res.status(200).json({
-            message: "Status updated successfully.",
-            success: true
-        });
-
+        return res.status(200).json({ message: "Status updated successfully.", success: true });
     } catch (error) {
         console.error("Update status error:", error);
-        return res.status(500).json({
-            message: "Internal server error updating applicant status",
-            success: false
-        });
+        return res.status(500).json({ message: "Internal server error updating applicant status", success: false });
     }
 };
