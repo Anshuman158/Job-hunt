@@ -23,6 +23,10 @@ const companySchema = new mongoose.Schema({
         type: String,
         default: ""
     },
+    logoPublicId: {
+        type: String,
+        default: ""
+    },
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

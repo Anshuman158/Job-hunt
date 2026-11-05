@@ -1,5 +1,5 @@
 import { Company } from "../models/company.model.js";
-import getDataUri from "../utils/datauri.js";
+import { uploadFile, deleteFile } from "../utils/cloudinary.js";
 import { isDbConnected } from "../utils/db.js";
 import { mockStore } from "../utils/mockStore.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -23,6 +23,7 @@ export const registerCompany = async (req, res, next) => {
                 website: "",
                 location: "",
                 logo: "",
+                logoPublicId: "",
                 userId: req.id,
                 createdAt: new Date(),
                 updatedAt: new Date()
@@ -106,9 +107,20 @@ export const updateCompany = async (req, res, next) => {
         const file = req.file;
 
         let logoUrl;
+        let logoPublicId;
         if (file) {
-            const fileUri = getDataUri(file);
-            logoUrl = fileUri.content;
+            // Check for previous logo to delete from Cloudinary
+            const existingCompany = !isDbConnected() 
+                ? mockStore.companies.find(c => c._id.toString() === req.params.id.toString())
+                : await Company.findById(req.params.id);
+
+            if (existingCompany?.logoPublicId) {
+                await deleteFile(existingCompany.logoPublicId, "image");
+            }
+
+            const uploadRes = await uploadFile(file, { folder: "jobhunt/logos", resource_type: "image" });
+            logoUrl = uploadRes.secure_url;
+            logoPublicId = uploadRes.public_id || "";
         }
 
         if (!isDbConnected()) {
@@ -120,7 +132,10 @@ export const updateCompany = async (req, res, next) => {
             if (description !== undefined) company.description = description;
             if (website !== undefined) company.website = website;
             if (location !== undefined) company.location = location;
-            if (logoUrl) company.logo = logoUrl;
+            if (logoUrl) {
+                company.logo = logoUrl;
+                company.logoPublicId = logoPublicId;
+            }
             company.updatedAt = new Date();
 
             return res.status(200).json({
@@ -135,7 +150,10 @@ export const updateCompany = async (req, res, next) => {
         if (description !== undefined) updateData.description = description;
         if (website !== undefined) updateData.website = website;
         if (location !== undefined) updateData.location = location;
-        if (logoUrl) updateData.logo = logoUrl;
+        if (logoUrl) {
+            updateData.logo = logoUrl;
+            updateData.logoPublicId = logoPublicId;
+        }
 
         const company = await Company.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
 

@@ -29,10 +29,15 @@ const userSchema = new mongoose.Schema({
     profile: {
         bio: { type: String, default: "" },
         skills: [{ type: String }],
-        resume: { type: String, default: "" }, // URL or base64 data to resume file
+        resume: { type: String, default: "" }, // URL to resume file (Cloudinary CDN or DataURI)
         resumeOriginalName: { type: String, default: "" },
+        resumePublicId: { type: String, default: "" },
         company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
         profilePhoto: {
+            type: String,
+            default: ""
+        },
+        profilePhotoPublicId: {
             type: String,
             default: ""
         }

@@ -1,7 +1,7 @@
 import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import getDataUri from "../utils/datauri.js";
+import { uploadFile, deleteFile } from "../utils/cloudinary.js";
 import { isDbConnected } from "../utils/db.js";
 import { mockStore } from "../utils/mockStore.js";
 import { OAuth2Client } from "google-auth-library";
@@ -41,9 +41,11 @@ export const register = async (req, res, next) => {
 
         const file = req.file;
         let profilePhotoUrl = "";
+        let profilePhotoPublicId = "";
         if (file) {
-            const fileUri = getDataUri(file);
-            profilePhotoUrl = fileUri.content;
+            const uploadRes = await uploadFile(file, { folder: "jobhunt/profiles", resource_type: "image" });
+            profilePhotoUrl = uploadRes.secure_url;
+            profilePhotoPublicId = uploadRes.public_id || "";
         }
 
         if (!isDbConnected()) {
@@ -59,7 +61,15 @@ export const register = async (req, res, next) => {
                 phoneNumber: Number(phoneNumber),
                 password: hashedPassword,
                 role,
-                profile: { bio: "", skills: [], resume: "", resumeOriginalName: "", profilePhoto: profilePhotoUrl },
+                profile: { 
+                    bio: "", 
+                    skills: [], 
+                    resume: "", 
+                    resumeOriginalName: "", 
+                    resumePublicId: "",
+                    profilePhoto: profilePhotoUrl,
+                    profilePhotoPublicId
+                },
                 createdAt: new Date(),
                 updatedAt: new Date()
             };
@@ -79,7 +89,10 @@ export const register = async (req, res, next) => {
             phoneNumber,
             password: hashedPassword,
             role,
-            profile: { profilePhoto: profilePhotoUrl }
+            profile: { 
+                profilePhoto: profilePhotoUrl,
+                profilePhotoPublicId
+            }
         });
 
         return res.status(201).json({ message: "Account created successfully.", success: true });
@@ -161,11 +174,29 @@ export const updateProfile = async (req, res, next) => {
             if (phoneNumber) user.phoneNumber = phoneNumber;
             if (bio !== undefined) user.profile.bio = bio;
             if (skillsArray) user.profile.skills = skillsArray;
+
             if (file) {
-                const fileUri = getDataUri(file);
-                user.profile.resume = fileUri.content;
-                user.profile.resumeOriginalName = file.originalname;
+                const isImage = file.mimetype.startsWith("image/");
+                const folder = isImage ? "jobhunt/profiles" : "jobhunt/resumes";
+                const resourceType = isImage ? "image" : "raw";
+
+                // Cleanup previous file if stored in Cloudinary
+                const oldPublicId = isImage ? user.profile.profilePhotoPublicId : user.profile.resumePublicId;
+                if (oldPublicId) {
+                    await deleteFile(oldPublicId, resourceType);
+                }
+
+                const uploadRes = await uploadFile(file, { folder, resource_type: resourceType });
+                if (isImage) {
+                    user.profile.profilePhoto = uploadRes.secure_url;
+                    user.profile.profilePhotoPublicId = uploadRes.public_id || "";
+                } else {
+                    user.profile.resume = uploadRes.secure_url;
+                    user.profile.resumeOriginalName = file.originalname;
+                    user.profile.resumePublicId = uploadRes.public_id || "";
+                }
             }
+
             user.updatedAt = new Date();
             return res.status(200).json({ message: "Profile updated successfully.", user: sanitizeUser(user), success: true });
         }
@@ -178,10 +209,26 @@ export const updateProfile = async (req, res, next) => {
         if (phoneNumber) user.phoneNumber = phoneNumber;
         if (bio !== undefined) user.profile.bio = bio;
         if (skillsArray) user.profile.skills = skillsArray;
+
         if (file) {
-            const fileUri = getDataUri(file);
-            user.profile.resume = fileUri.content;
-            user.profile.resumeOriginalName = file.originalname;
+            const isImage = file.mimetype.startsWith("image/");
+            const folder = isImage ? "jobhunt/profiles" : "jobhunt/resumes";
+            const resourceType = isImage ? "image" : "raw";
+
+            const oldPublicId = isImage ? user.profile.profilePhotoPublicId : user.profile.resumePublicId;
+            if (oldPublicId) {
+                await deleteFile(oldPublicId, resourceType);
+            }
+
+            const uploadRes = await uploadFile(file, { folder, resource_type: resourceType });
+            if (isImage) {
+                user.profile.profilePhoto = uploadRes.secure_url;
+                user.profile.profilePhotoPublicId = uploadRes.public_id || "";
+            } else {
+                user.profile.resume = uploadRes.secure_url;
+                user.profile.resumeOriginalName = file.originalname;
+                user.profile.resumePublicId = uploadRes.public_id || "";
+            }
         }
 
         await user.save();
